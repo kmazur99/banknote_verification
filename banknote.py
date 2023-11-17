@@ -55,14 +55,14 @@ class Network:
     
     def set_weights(self, weights):
         for i in range(len(self.layers)):
-            layer_weights = weights[:self.layers[i].weights.size] # Unpack weights and set them in the network
+            layer_weights = weights[:self.layers[i].weights.size] # Load weights and set them in the network
             self.layers[i].weights = layer_weights.reshape(self.layers[i].weights.shape) # Reshape weights to match layer shape
             
     def set_biases(self, biases):
         # Unpack biases and set them in the network
         for i in range(len(self.layers)):
-            layer_biases = biases[:self.layers[i].biases.size]
-            self.layers[i].biases = layer_biases.reshape(self.layers[i].biases.shape)
+            layer_biases = biases[:self.layers[i].biases.size] # Load biases and set them in the network
+            self.layers[i].biases = layer_biases.reshape(self.layers[i].biases.shape) # Reshape biases to match layer shape
     
     def get_accuracy(self, features, labels): # Get current accuracy of the network
         correct_predictions = 0
@@ -73,8 +73,7 @@ class Network:
         accuracy = correct_predictions / len(labels)
         return accuracy
     
-    def num_parameters(self): # Calculate number of parameters in the network to feed into PSO
-        # Calculate number of parameters in the network
+    def get_parameters(self): # Get number of parameters in the network (weights + biases for each layer)
         num_parameters = 0
         for layer in self.layers:
             num_parameters += layer.weights.size + layer.biases.size
@@ -89,35 +88,39 @@ class Network:
 # Define particle class
 class Particle:
     def __init__ (self, dimensions):
-        self.position = np.random.uniform(-1, 1, dimensions)
-        self.velocity = np.random.uniform(-1, 1, dimensions)
-        self.best_position = self.position.copy()
-        self.best_score = 0
+        self.position = np.random.uniform(-1, 1, dimensions) # Initialize random position
+        self.velocity = np.random.uniform(-1, 1, dimensions) # Initialize random velocity
+        self.best_position = self.position.copy() # Initialize best position to current position
+        self.best_score = 0 # Initialize best score to 0
 
 class PSO:
     def __init__(self, network, num_particles, num_informants):
-        self.network = network
-        self.particles = [Particle(network.num_parameters()) for i in range(num_particles)]
-        self.informants = {p: random.sample(self.particles, num_informants) for p in self.particles}
-        self.global_best_position = np.random.uniform(-1, 1, network.num_parameters())
-        self.global_best_score = 0
+        self.network = network # Initialize neural network
+        self.particles = [] # List to store particles
+        self.informants = {} # Dictionary to store informants for each particle
+        self.num_informants = num_informants # Number of informants for each particle
+        self.global_best_position = np.random.uniform(-1, 1, network.get_parameters()) # Initialize global best position to random position
+        self.global_best_score = 0 # Initialize global best score to 0
     
-    def optimise(self, features, labels, epochs):
-        # Inertia weight starts high for exploration and decreases for exploitation
-        w_max = 0.9  # Starting inertia weight
-        w_min = 0.4  # Ending inertia weight
-        
-        c1 = 1.5  # Cognitive coefficient
-        c2 = 1.5  # Social coefficient
+        # Initialize particles
+        for i in range(num_particles):
+            self.particles.append(Particle(network.get_parameters())) # Initialize particle with dimensions == number of parameters in the network
 
+    def train(self, features, labels, epochs, inertia_start, inertia_end, cognitive_coefficient, social_coefficient):
         for epoch in tqdm(range(epochs), desc="Training", unit=" Epoch", ncols=100):
-            # Linearly decreasing inertia weight
-            w = w_max - ((w_max - w_min) * epoch / epochs)
+            # Decrease inertia weight linearly from inertia_start to inertia_end to explore more at the start and exploit more at the end
+            inertia_weight = inertia_start - (inertia_start - inertia_end) * (epoch / epochs) 
 
             for particle in self.particles:
+
+                # Assign informants to each particle
+                self.informants[particle] = random.sample(self.particles, self.num_informants)
+
+                # Update network weights and biases with particle position
                 self.network.set_weights(particle.position)
-                self.network.set_biases(particle.position)
-                # calculate accuracy
+                self.network.set_biases(particle.position) 
+
+                # Get particle current score based on accuracy
                 current_score = self.network.get_accuracy(features, labels)
 
                 # Update particle personal best
@@ -127,33 +130,35 @@ class PSO:
                 
                 # Update global best
                 if current_score > self.global_best_score:
-                    self.global_best_score = current_score
+                    self.global_best_score = current_score 
                     self.global_best_position = particle.position.copy()
             
-            # Update particles
-            for particle in self.particles:
-                informants_best = max(self.informants[particle], key=lambda p: p.best_score).best_position
-                r1, r2 = np.random.rand(), np.random.rand()
+                informants_best_position = 0 # Initialize informants best position to 0
+                informants_best_score = 0 # Initialize best score to 0
 
-                # Update velocity with random factors
-                particle.velocity = (w * particle.velocity + 
-                                     c1 * r1 * (particle.best_position - particle.position) + 
-                                     c2 * r2 * (informants_best - particle.position))
+                # Get the informant with the best score and get its best position
+                for informant in self.informants[particle]: # Iterate over informants
+                    if informant.best_score > informants_best_score: # Update best score and best position if current informant has a better score
+                        informants_best_score = informant.best_score 
+                        informants_best_position = informant.best_position.copy()
 
-                # Update position
+                # Random numbers between 0 and 1
+                random1 = np.random.rand()
+                random2 = np.random.rand()
+
+                # Update each particle velocity according to the formula using informants best position
+                particle.velocity = (inertia_weight * particle.velocity + cognitive_coefficient * random1 * (particle.best_position - particle.position) + social_coefficient * random2 * (informants_best_position - particle.position))
+
+                # Update each particle position by adding the velocity
                 particle.position += particle.velocity
 
+            # Print real time info on training
             ann.print_layers()
             print(f"Loss: {1 - self.global_best_score} | Accuracy: {self.global_best_score}")
-            
+        
+        # Update network weights and biases with global best position
         self.network.set_weights(self.global_best_position)
         self.network.set_biases(self.global_best_position)
-    
-    def update_particle(self, particle, informants_best_position):
-        # Update particle velocity
-        particle.velocity = 0.5 * particle.velocity + 0.5 * (particle.best_position - particle.position) + 0.5 * (informants_best_position - particle.position)
-        # Update particle position
-        particle.position = particle.position + particle.velocity
 
 # Test neural network
 def test_ann(ann, features, labels):
@@ -190,9 +195,9 @@ ann.add(neurons=8, activation=relu)
 ann.add(neurons=4, activation=relu)
 ann.add(neurons=1, activation=sigmoid) # Output layer 1 neuron (output either 0 or 1)
 
-# define Number of particles and informants
+# Define PSO hyperparameters and train neural network
 pso = PSO(ann, num_particles=50, num_informants=5)
-pso.optimise(features, labels, epochs=100) # Run PSO
+pso.train(features, labels, epochs=100, inertia_start=0.9, inertia_end=0.4, cognitive_coefficient=1.5, social_coefficient=1.5) 
 
 # Test neural network
 test_ann(ann, features, labels)
