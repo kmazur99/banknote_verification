@@ -51,16 +51,21 @@ class Network:
             output = layer.forward_pass(output)
         return output # final output of the neural network
     
-    def set_weights(self, weights):
-        for i in range(len(self.layers)):
-            layer_weights = weights[:self.layers[i].weights.size] # Load weights and set them in the network
-            self.layers[i].weights = layer_weights.reshape(self.layers[i].weights.shape) # Reshape weights to match layer shape
+    def set_weights(self, weights): # Set weights according to layer shape and order
+        start_index = 0 # Where to start loading weights from
+        for layer in self.layers:
+            end_index = start_index + layer.weights.size # Calculate end index
+            current_layer_weights = weights[start_index:end_index] # Load weights for current layer
+            layer.weights = current_layer_weights.reshape(layer.weights.shape) # Reshape weights to match layer shape
+            start_index = end_index # Update start index for next layer
             
-    def set_biases(self, biases):
-        # Unpack biases and set them in the network
-        for i in range(len(self.layers)):
-            layer_biases = biases[:self.layers[i].biases.size] # Load biases and set them in the network
-            self.layers[i].biases = layer_biases.reshape(self.layers[i].biases.shape) # Reshape biases to match layer shape
+    def set_biases(self, biases): # Set biases according to layer shape and order
+        start_index = 0 # Where to start loading biases from
+        for layer in self.layers:
+            end_index = start_index + layer.biases.size # Calculate end index
+            current_layer_biases = biases[start_index:end_index] # Load biases for current layer
+            layer.biases = current_layer_biases.reshape(layer.biases.shape) # Reshape biases to match layer shape
+            start_index = end_index # Update start index for next layer
     
     def get_accuracy(self, features, labels): # Get current accuracy of the network
         correct_predictions = 0
@@ -158,31 +163,10 @@ class PSO:
 
 # Test neural network
 def test_ann(ann, features, labels):
-    # predictions = ann.forward_pass(features)
-    
-    # correct_predictions = 0
-    # predicted_labels = []
-    
-    # # Classify predicted values as either 0 or 1 based on threshold of 0.5
-    # for prediction in predictions:
-    #     if prediction > 0.5:
-    #         predicted_label = 1
-    #     else:
-    #         predicted_label = 0
-        
-    #     predicted_labels.append(predicted_label)
-    
-    # for i in range(len(labels)):
-    #     # Add to correct count if prediction matches actual label    
-    #     if predicted_labels[i] == labels[i]:
-    #         correct_predictions += 1
-    
-    # # Calculate and print accuracy
-    # accuracy = (correct_predictions / len(labels))
     accuracy = ann.get_accuracy(features, labels)
     print("\n----------------------")
     print(f"Accuracy: {100 * accuracy:.2f}%") 
-    print(f"Correct: {int(accuracy * len(labels))}/{len(labels)}\n")
+    print(f"Correct: {int(accuracy * len(labels))}/{len(labels)}\n") # Extract number of correct predictions from accuracy and print it
 
 ann = Network(in_features=4) # Initialize neural network
 
