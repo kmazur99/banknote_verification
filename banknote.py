@@ -54,18 +54,15 @@ class Network:
         return output # final output of the neural network
     
     def set_weights(self, weights):
-        # Unpack weights and set them in the network
         for i in range(len(self.layers)):
-            layer_weights = weights[:self.layers[i].weights.size]
-            self.layers[i].weights = layer_weights.reshape(self.layers[i].weights.shape)
-            weights = weights[self.layers[i].weights.size:]
+            layer_weights = weights[:self.layers[i].weights.size] # Unpack weights and set them in the network
+            self.layers[i].weights = layer_weights.reshape(self.layers[i].weights.shape) # Reshape weights to match layer shape
             
     def set_biases(self, biases):
         # Unpack biases and set them in the network
         for i in range(len(self.layers)):
             layer_biases = biases[:self.layers[i].biases.size]
             self.layers[i].biases = layer_biases.reshape(self.layers[i].biases.shape)
-            biases = biases[self.layers[i].biases.size:]
     
     def get_accuracy(self, features, labels): # Get current accuracy of the network
         correct_predictions = 0
@@ -86,9 +83,8 @@ class Network:
     def print_layers(self):
         # Print weights and biases for each layer
         for i in range(len(self.layers)):
-            print(f"\nLayer {i+1} weights: {self.layers[i].weights}")
-            print(f"Layer {i+1} biases: {self.layers[i].biases}")
-            print()
+            print(f"\nLayer {i+1} weights: \n{self.layers[i].weights}")
+            print(f"\nLayer {i+1} biases: \n{self.layers[i].biases}\n")
 
 # Define particle class
 class Particle:
@@ -114,7 +110,7 @@ class PSO:
         c1 = 1.5  # Cognitive coefficient
         c2 = 1.5  # Social coefficient
 
-        for epoch in tqdm(range(epochs), desc="Training", unit="epoch", position=0, ncols=100):
+        for epoch in tqdm(range(epochs), desc="Training", unit=" Epoch", ncols=100):
             # Linearly decreasing inertia weight
             w = w_max - ((w_max - w_min) * epoch / epochs)
 
@@ -175,19 +171,16 @@ def test_ann(ann, features, labels):
         
         predicted_labels.append(predicted_label)
     
-    
     for i in range(len(labels)):
-        # print predictions
-        print(f"Banknote {i}, Predicted label: {predicted_labels[i]}, Actual label: {int(labels[i])}")
-        
         # Add to correct count if prediction matches actual label    
         if predicted_labels[i] == labels[i]:
             correct_predictions += 1
     
     # Calculate and print accuracy
     accuracy = (correct_predictions / len(labels))
-    print(f"\nAccuracy: {accuracy}")
-    print(f"Correct: {correct_predictions}/{len(labels)}")
+    print("\n----------------------")
+    print(f"Accuracy: {100 * accuracy:.2f}%") 
+    print(f"Correct: {correct_predictions}/{len(labels)}\n")
 
 ann = Network(in_features=4) # Initialize neural network
 
