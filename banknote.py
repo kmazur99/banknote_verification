@@ -24,7 +24,7 @@ class Layer:
     def __init__(self, in_features, neurons, activation):
         self.neurons = neurons # Number of neurons for this layer
         self.weights = np.random.randn(in_features, self.neurons) # Calculate random weights between input and output neurons
-        self.biases = np.zeros(self.neurons) # Initialize bias for each neuron in this layer (currently 0)
+        self.biases = np.zeros(self.neurons) # Initialize bias for each neuron in this layer to 0
         self.activation = activation # activation function for this layer
 
     # Forward pass through the layer
@@ -54,19 +54,20 @@ class Network:
         return output # final output of the neural network
     
     def set_weights(self, weights):
-        # Unpack weights and set them in the network, assumes weights are in a flat array
+        # Unpack weights and set them in the network
         for i in range(len(self.layers)):
             layer_weights = weights[:self.layers[i].weights.size]
             self.layers[i].weights = layer_weights.reshape(self.layers[i].weights.shape)
             weights = weights[self.layers[i].weights.size:]
-        
-        # Unpack biases and set them in the network, assumes biases are in a flat array
+            
+    def set_biases(self, biases):
+        # Unpack biases and set them in the network
         for i in range(len(self.layers)):
-            layer_biases = weights[:self.layers[i].biases.size]
+            layer_biases = biases[:self.layers[i].biases.size]
             self.layers[i].biases = layer_biases.reshape(self.layers[i].biases.shape)
-            weights = weights[self.layers[i].biases.size:]
+            biases = biases[self.layers[i].biases.size:]
     
-    def get_accuracy(self, features, labels):
+    def get_accuracy(self, features, labels): # Get current accuracy of the network
         correct_predictions = 0
         for xi, yi in zip(features, labels):
             prediction = self.forward_pass(xi)
@@ -75,7 +76,7 @@ class Network:
         accuracy = correct_predictions / len(labels)
         return accuracy
     
-    def num_parameters(self):
+    def num_parameters(self): # Calculate number of parameters in the network to feed into PSO
         # Calculate number of parameters in the network
         num_parameters = 0
         for layer in self.layers:
@@ -95,7 +96,7 @@ class Particle:
         self.position = np.random.uniform(-1, 1, dimensions)
         self.velocity = np.random.uniform(-1, 1, dimensions)
         self.best_position = self.position.copy()
-        self.best_score = float('inf')
+        self.best_score = 0
 
 class PSO:
     def __init__(self, network, num_particles, num_informants):
@@ -103,7 +104,7 @@ class PSO:
         self.particles = [Particle(network.num_parameters()) for i in range(num_particles)]
         self.informants = {p: random.sample(self.particles, num_informants) for p in self.particles}
         self.global_best_position = np.random.uniform(-1, 1, network.num_parameters())
-        self.global_best_score = float('inf')
+        self.global_best_score = 0
     
     def optimise(self, features, labels, epochs):
         # Inertia weight starts high for exploration and decreases for exploitation
@@ -119,22 +120,23 @@ class PSO:
 
             for particle in self.particles:
                 self.network.set_weights(particle.position)
-                accuracy = self.network.get_accuracy(features, labels)
-                score = 1 - accuracy
+                self.network.set_biases(particle.position)
+                # calculate accuracy
+                current_score = self.network.get_accuracy(features, labels)
 
                 # Update particle personal best
-                if score < particle.best_score:
-                    particle.best_score = score
+                if current_score > particle.best_score:
+                    particle.best_score = current_score
                     particle.best_position = particle.position.copy()
                 
                 # Update global best
-                if score < self.global_best_score:
-                    self.global_best_score = score
+                if current_score > self.global_best_score:
+                    self.global_best_score = current_score
                     self.global_best_position = particle.position.copy()
             
             # Update particles
             for particle in self.particles:
-                informants_best = min(self.informants[particle], key=lambda p: p.best_score).best_position
+                informants_best = max(self.informants[particle], key=lambda p: p.best_score).best_position
                 r1, r2 = np.random.rand(), np.random.rand()
 
                 # Update velocity with random factors
@@ -146,24 +148,16 @@ class PSO:
                 particle.position += particle.velocity
 
             ann.print_layers()
-            print(f"Epoch {epoch+1} best score: {self.global_best_score}")
+            print(f"Loss: {1 - self.global_best_score} | Accuracy: {self.global_best_score}")
             
         self.network.set_weights(self.global_best_position)
+        self.network.set_biases(self.global_best_position)
     
     def update_particle(self, particle, informants_best_position):
         # Update particle velocity
         particle.velocity = 0.5 * particle.velocity + 0.5 * (particle.best_position - particle.position) + 0.5 * (informants_best_position - particle.position)
         # Update particle position
         particle.position = particle.position + particle.velocity
-
-
-ann = Network(in_features=4) # specify number of input features
-
-# Add layers, specify number of neurons and activation function used
-ann.add(neurons=5, activation=relu)
-ann.add(neurons=6, activation=relu)
-ann.add(neurons=4, activation=relu)
-ann.add(neurons=1, activation=sigmoid)
 
 # Test neural network
 def test_ann(ann, features, labels):
@@ -172,7 +166,7 @@ def test_ann(ann, features, labels):
     correct_predictions = 0
     predicted_labels = []
     
-    # Classify predicted values
+    # Classify predicted values as either 0 or 1 based on threshold of 0.5
     for prediction in predictions:
         if prediction > 0.5:
             predicted_label = 1
@@ -195,10 +189,17 @@ def test_ann(ann, features, labels):
     print(f"\nAccuracy: {accuracy}")
     print(f"Correct: {correct_predictions}/{len(labels)}")
 
-pso = PSO(ann, num_particles=50, num_informants=8)
-pso.optimise(features, labels, epochs=100)
+ann = Network(in_features=4) # Initialize neural network
 
-final_accuracy = ann.get_accuracy(features, labels)
-print(f"Final Model Accuracy: {final_accuracy * 100:.2f}%")
+# Add layers, specify number of neurons and activation function used
+ann.add(neurons=4, activation=relu) # Input layer 4 neurons (4 features in)
+ann.add(neurons=8, activation=relu)
+ann.add(neurons=4, activation=relu)
+ann.add(neurons=1, activation=sigmoid) # Output layer 1 neuron (output either 0 or 1)
 
+# define Number of particles and informants
+pso = PSO(ann, num_particles=50, num_informants=5)
+pso.optimise(features, labels, epochs=100) # Run PSO
+
+# Test neural network
 test_ann(ann, features, labels)
