@@ -3,9 +3,7 @@ import pandas as pd
 import random
 from tqdm import tqdm
 
-banknotes = "data_banknote_authentication.csv"
-
-df = pd.read_csv(banknotes)
+df = pd.read_csv("data_banknote_authentication.csv") # Read csv file
 features = df.values[:, :-1] # take first 4 columns(banknote features)
 labels = df.values[:, -1] # take last column(output either 0 or 1)
 
@@ -66,18 +64,17 @@ class Network:
     
     def get_accuracy(self, features, labels): # Get current accuracy of the network
         correct_predictions = 0
-        for xi, yi in zip(features, labels):
-            prediction = self.forward_pass(xi)
-            if prediction == yi:
+        for feature, label in zip(features, labels):
+            prediction = self.forward_pass(feature)
+            if prediction == label:
                 correct_predictions += 1
-        accuracy = correct_predictions / len(labels)
-        return accuracy
+        return correct_predictions / len(labels) # Return accuracy 
     
-    def get_parameters(self): # Get number of parameters in the network (weights + biases for each layer)
-        num_parameters = 0
+    def get_parameters(self): # Get number of parameters in the network (number of weights + number of biases for each layer)
+        parameters = 0
         for layer in self.layers:
-            num_parameters += layer.weights.size + layer.biases.size
-        return num_parameters
+            parameters += layer.weights.size + layer.biases.size
+        return parameters
     
     def print_layers(self):
         # Print weights and biases for each layer
@@ -85,7 +82,6 @@ class Network:
             print(f"\nLayer {i+1} weights: \n{self.layers[i].weights}")
             print(f"\nLayer {i+1} biases: \n{self.layers[i].biases}\n")
 
-# Define particle class
 class Particle:
     def __init__ (self, dimensions):
         self.position = np.random.uniform(-1, 1, dimensions) # Initialize random position
@@ -107,7 +103,7 @@ class PSO:
             self.particles.append(Particle(network.get_parameters())) # Initialize particle with dimensions == number of parameters in the network
 
     def train(self, features, labels, epochs, inertia_start, inertia_end, cognitive_coefficient, social_coefficient):
-        for epoch in tqdm(range(epochs), desc="Training", unit=" Epoch", ncols=100):
+        for epoch in tqdm(range(epochs), desc="Training", ncols=100):
             # Decrease inertia weight linearly from inertia_start to inertia_end to explore more at the start and exploit more at the end
             inertia_weight = inertia_start - (inertia_start - inertia_end) * (epoch / epochs) 
 
@@ -162,30 +158,31 @@ class PSO:
 
 # Test neural network
 def test_ann(ann, features, labels):
-    predictions = ann.forward_pass(features)
+    # predictions = ann.forward_pass(features)
     
-    correct_predictions = 0
-    predicted_labels = []
+    # correct_predictions = 0
+    # predicted_labels = []
     
-    # Classify predicted values as either 0 or 1 based on threshold of 0.5
-    for prediction in predictions:
-        if prediction > 0.5:
-            predicted_label = 1
-        else:
-            predicted_label = 0
+    # # Classify predicted values as either 0 or 1 based on threshold of 0.5
+    # for prediction in predictions:
+    #     if prediction > 0.5:
+    #         predicted_label = 1
+    #     else:
+    #         predicted_label = 0
         
-        predicted_labels.append(predicted_label)
+    #     predicted_labels.append(predicted_label)
     
-    for i in range(len(labels)):
-        # Add to correct count if prediction matches actual label    
-        if predicted_labels[i] == labels[i]:
-            correct_predictions += 1
+    # for i in range(len(labels)):
+    #     # Add to correct count if prediction matches actual label    
+    #     if predicted_labels[i] == labels[i]:
+    #         correct_predictions += 1
     
-    # Calculate and print accuracy
-    accuracy = (correct_predictions / len(labels))
+    # # Calculate and print accuracy
+    # accuracy = (correct_predictions / len(labels))
+    accuracy = ann.get_accuracy(features, labels)
     print("\n----------------------")
     print(f"Accuracy: {100 * accuracy:.2f}%") 
-    print(f"Correct: {correct_predictions}/{len(labels)}\n")
+    print(f"Correct: {int(accuracy * len(labels))}/{len(labels)}\n")
 
 ann = Network(in_features=4) # Initialize neural network
 
