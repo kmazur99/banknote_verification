@@ -113,7 +113,6 @@ class PSO:
             inertia_weight = inertia_start - (inertia_start - inertia_end) * (epoch / epochs) 
 
             for particle in self.particles:
-
                 # Assign informants to each particle
                 self.informants[particle] = random.sample(self.particles, self.num_informants)
 
